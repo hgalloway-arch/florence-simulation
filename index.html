@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A Decade in Florence – v1.0 Internal Edition</title>
+
+<link href="https://fonts.googleapis.com/css2?family=IM+Fell+English+SC&display=swap" rel="stylesheet">
+
+<style>
+body{
+    font-family: Arial, sans-serif;
+    background:#f4efe6;
+    margin:0;
+    padding:20px;
+}
+.container{
+    max-width:1200px;
+    margin:auto;
+    background:white;
+    padding:20px;
+    border-radius:10px;
+    box-shadow:0 0 10px rgba(0,0,0,0.1);
+}
+h1,h2,h3{
+    text-align:center;
+}
+button{
+    padding:8px 14px;
+    margin:6px;
+    border:none;
+    border-radius:6px;
+    cursor:pointer;
+    font-size:14px;
+}
+.role-btn{
+    background:#8b4513;
+    color:white;
+}
+.choice-btn{
+    background:#ccd5ae;
+}
+.hidden{
+    display:none;
+}
+.scoreboard{
+    display:flex;
+    justify-content:space-around;
+    margin-top:15px;
+    font-weight:bold;
+    flex-wrap:wrap;
+}
+textarea{
+    width:100%;
+    height:100px;
+    margin-top:10px;
+}
+.meter-bar{
+    height:20px;
+    background:linear-gradient(to right,green,yellow,red);
+    border-radius:10px;
+    position:relative;
+    margin-top:10px;
+}
+.meter-indicator{
+    height:20px;
+    width:6px;
+    background:black;
+    position:absolute;
+    top:0;
+    transition:left .4s ease;
+}
+.small{
+    font-size:12px;
+    color:#666;
+    text-align:right;
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+
+<h1>A Decade in Florence</h1>
+<div class="small">Version 1.0 – Internal Edition (Auto Save Enabled)</div>
+
+<p style="font-family:'IM Fell English SC', serif;font-size:18px;text-align:center;">
+Florence, 1490. Medici wealth, Papal authority, rival factions, and public unrest define the decade ahead.
+</p>
+
+<!-- START SCREEN -->
+<div id="startScreen">
+<h2>Select Your Character</h2>
+
+<button class="role-btn" onclick="selectRole('Lorenzo')">👑 Lorenzo de' Medici</button>
+<button class="role-btn" onclick="selectRole('Banker')">💰 Tommaso Bardi</button>
+<button class="role-btn" onclick="selectRole('Artist')">🎨 Isabella</button>
+<button class="role-btn" onclick="selectRole('Priest')">⛪ Father Matteo</button>
+<button class="role-btn" onclick="selectRole('Savonarola')">🔥 Savonarola</button>
+<button class="role-btn" onclick="selectRole('Merchant')">📦 Marco</button>
+<button class="role-btn" onclick="selectRole('Peasant')">🌾 Lucia</button>
+
+<div style="margin-top:20px;">
+<button onclick="resumeGame()">Resume Saved Game</button>
+<button onclick="resetGame()">Start New Game</button>
+</div>
+</div>
+
+<!-- GAME SCREEN -->
+<div id="game" class="hidden">
+
+<div class="scoreboard">
+<div>Power: <span id="power">0</span></div>
+<div>Church: <span id="church">0</span></div>
+<div>Public: <span id="public">0</span></div>
+<div>Morality: <span id="morality">0</span></div>
+<div>Florins: <span id="money">5</span></div>
+<div>Team Score: <span id="teamScore">0</span></div>
+</div>
+
+<h3>Church–State Tension</h3>
+<div class="meter-bar">
+<div id="tensionMeter" class="meter-indicator" style="left:10%;"></div>
+</div>
+
+<h2>Round <span id="roundNum">1</span></h2>
+<p id="scenario"></p>
+<p><strong>Random Event:</strong> <span id="event"></span></p>
+
+<button class="choice-btn" onclick="takeAction()">Take Action</button>
+
+<h3>Couplet Creator</h3>
+<p>Write two rhyming lines in iambic-style rhythm.</p>
+<textarea id="poem" placeholder="Line 1
+Line 2"></textarea>
+<button onclick="analyzePoem()">Analyze Couplet</button>
+<p id="poemFeedback"></p>
+
+<button onclick="nextRound()">Next Round</button>
+
+<div style="margin-top:15px;">
+<button onclick="exportSave()">Export Save File</button>
+<input type="file" onchange="importSave(event)" />
+</div>
+
+</div>
+
+<!-- ENDING -->
+<div id="ending" class="hidden">
+<h2>End of the Decade</h2>
+<p id="epilogue"></p>
+<p id="dataSummary"></p>
+<button onclick="resetGame()">Play Again</button>
+</div>
+
+</div>
+
+<script>
+
+let gameState = {
+    role: "",
+    power: 0,
+    church: 0,
+    public: 0,
+    morality: 0,
+    money: 5,
+    tension: 1,
+    round: 1,
+    teamScore: 0
+};
+
+const events = [
+    "Plague spreads.",
+    "Papal decree issued.",
+    "War threatens Florence.",
+    "Economic crisis hits."
+];
+
+const dilemmas = {
+    Lorenzo:"Expand Medici patronage.",
+    Banker:"Increase loan rates.",
+    Artist:"Challenge artistic censorship.",
+    Priest:"Investigate moral corruption.",
+    Savonarola:"Preach reform.",
+    Merchant:"Protest trade laws.",
+    Peasant:"Demand fair wages."
+};
+
+function selectRole(r){
+    resetGameState();
+    gameState.role = r;
+    gameState.power += 1;
+    saveGame();
+    startGame();
+}
+
+function startGame(){
+    document.getElementById('startScreen').classList.add('hidden');
+    document.getElementById('game').classList.remove('hidden');
+    loadRound();
+    updateUI();
+}
+
+function loadRound(){
+    document.getElementById('roundNum').innerText = gameState.round;
+    document.getElementById('scenario').innerText = dilemmas[gameState.role];
+    document.getElementById('event').innerText =
+        events[Math.floor(Math.random()*events.length)];
+}
+
+function takeAction(){
+    gameState.power += 1;
+    gameState.public += 1;
+    gameState.tension += 1;
+    gameState.teamScore += 1;
+    saveGame();
+    updateUI();
+}
+
+function countSyllables(word){
+    word = word.toLowerCase();
+    if(word.length<=3) return 1;
+    return word.replace(/(?:[^laeiouy]es|ed|[^laeiouy]e)$/,'')
+        .replace(/^y/,'')
+        .match(/[aeiouy]{1,2}/g)?.length || 1;
+}
+
+function analyzePoem(){
+    let poem = document.getElementById('poem').value.trim();
+    let lines = poem.split("\n");
+
+    if(lines.length !== 2){
+        document.getElementById('poemFeedback').innerText =
+            "Write exactly two lines.";
+        return;
+    }
+
+    let s1 = lines[0].split(' ')
+        .reduce((a,w)=>a+countSyllables(w),0);
+    let s2 = lines[1].split(' ')
+        .reduce((a,w)=>a+countSyllables(w),0);
+
+    let r1 = lines[0].split(' ').pop().slice(-2);
+    let r2 = lines[1].split(' ').pop().slice(-2);
+
+    let rhyme = r1 === r2;
+    let meter = (s1>=9 && s1<=11) && (s2>=9 && s2<=11);
+
+    if(meter && rhyme){
+        gameState.teamScore += 3;
+        gameState.public += 2;
+        gameState.power += 1;
+        document.getElementById('poemFeedback').innerText =
+            "Strong meter & rhyme.";
+    } else {
+        gameState.teamScore += 1;
+        document.getElementById('poemFeedback').innerText =
+            "Revise rhythm or rhyme.";
+    }
+
+    saveGame();
+    updateUI();
+}
+
+function nextRound(){
+    gameState.round++;
+    if(gameState.round > 3){
+        endGame();
+    } else {
+        saveGame();
+        loadRound();
+        updateUI();
+    }
+}
+
+function updateUI(){
+    document.getElementById('power').innerText = gameState.power;
+    document.getElementById('church').innerText = gameState.church;
+    document.getElementById('public').innerText = gameState.public;
+    document.getElementById('morality').innerText = gameState.morality;
+    document.getElementById('money').innerText = gameState.money;
+    document.getElementById('teamScore').innerText = gameState.teamScore;
+    document.getElementById('tensionMeter').style.left =
+        Math.min(gameState.tension*15,100) + '%';
+}
+
+function endGame(){
+    document.getElementById('game').classList.add('hidden');
+    document.getElementById('ending').classList.remove('hidden');
+
+    let archetype = "Balanced Humanist";
+    if(gameState.power > gameState.church &&
+       gameState.power > gameState.public)
+        archetype = "Machiavellian Strategist";
+
+    if(gameState.church > gameState.power &&
+       gameState.church > gameState.public)
+        archetype = "Religious Authority";
+
+    if(gameState.public > gameState.power &&
+       gameState.public > gameState.church)
+        archetype = "Champion of the People";
+
+    document.getElementById('epilogue').innerText =
+        `As ${gameState.role}, you became a ${archetype}.`;
+
+    document.getElementById('dataSummary').innerText =
+        `Final Stats – Power: ${gameState.power}, Church: ${gameState.church}, Public: ${gameState.public}, Tension: ${gameState.tension}.`;
+
+    localStorage.removeItem('florenceSave');
+}
+
+function saveGame(){
+    localStorage.setItem('florenceSave',
+        JSON.stringify(gameState));
+}
+
+function resumeGame(){
+    let saved = localStorage.getItem('florenceSave');
+    if(saved){
+        gameState = JSON.parse(saved);
+        startGame();
+    }
+}
+
+function exportSave(){
+    let dataStr = "data:text/json;charset=utf-8," +
+        encodeURIComponent(JSON.stringify(gameState));
+    let dl = document.createElement('a');
+    dl.setAttribute("href", dataStr);
+    dl.setAttribute("download", "florence_save.json");
+    dl.click();
+}
+
+function importSave(event){
+    let file = event.target.files[0];
+    let reader = new FileReader();
+    reader.onload = function(e){
+        gameState = JSON.parse(e.target.result);
+        saveGame();
+        startGame();
+    };
+    reader.readAsText(file);
+}
+
+function resetGame(){
+    localStorage.removeItem('florenceSave');
+    location.reload();
+}
+
+function resetGameState(){
+    gameState = {
+        role:"",
+        power:0,
+        church:0,
+        public:0,
+        morality:0,
+        money:5,
+        tension:1,
+        round:1,
+        teamScore:0
+    };
+}
+
+</script>
+
+</body>
+</html>
